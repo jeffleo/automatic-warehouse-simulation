@@ -1,0 +1,13 @@
+﻿  LayoutUI.cpp
+c:\users\jeffrey leong\source\repos\warehouselayout\warehouselayout\layoutui.h(12): warning C4309: 'initializing': truncation of constant value
+c:\users\jeffrey leong\source\repos\warehouselayout\warehouselayout\layoutui.h(13): warning C4309: 'initializing': truncation of constant value
+c:\users\jeffrey leong\source\repos\warehouselayout\warehouselayout\layoutui.h(15): warning C4309: 'initializing': truncation of constant value
+c:\users\jeffrey leong\source\repos\warehouselayout\warehouselayout\layoutui.h(16): warning C4309: 'initializing': truncation of constant value
+c:\users\jeffrey leong\source\repos\warehouselayout\warehouselayout\layoutui.h(17): warning C4309: 'initializing': truncation of constant value
+c:\users\jeffrey leong\source\repos\warehouselayout\warehouselayout\layoutui.h(25): warning C4309: 'initializing': truncation of constant value
+c:\users\jeffrey leong\source\repos\warehouselayout\warehouselayout\layoutui.cpp(112): warning C4267: 'initializing': conversion from 'size_t' to 'char', possible loss of data
+  Generating Code...
+  Skipping... (no relevant changes detected)
+  main.cpp
+  WarehouseLayout.vcxproj -> c:\users\jeffrey leong\source\repos\WarehouseLayout\x64\Debug\WarehouseLayout.exe
+  WarehouseLayout.vcxproj -> c:\users\jeffrey leong\source\repos\WarehouseLayout\x64\Debug\WarehouseLayout.pdb (Partial PDB)
