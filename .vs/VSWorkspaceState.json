@@ -1,7 +1,9 @@
 {
   "ExpandedNodes": [
     "",
-    "\\Warehouse"
+    "\\Warehouse",
+    "\\Warehouse\\WarehouseLayout\\WarehouseLayout\\data"
   ],
+  "SelectedNode": "\\.gitignore",
   "PreviewInSolutionExplorer": false
 }

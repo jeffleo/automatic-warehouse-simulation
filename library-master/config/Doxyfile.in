@@ -1,0 +1,9 @@
+PROJECT_NAME           = "CPEN333: Process and Threads Library"
+PROJECT_NUMBER         = 1.1
+PROJECT_BRIEF          = "Cross-platform library for inter-process and inter-thread synchronization and communication"
+
+OUTPUT_DIRECTORY       = "@CMAKE_CURRENT_SOURCE_DIR@/docs/"
+INPUT                  = "@CMAKE_CURRENT_SOURCE_DIR@/include/cpen333/"
+RECURSIVE              = YES
+
+EXCLUDE_SYMBOLS        = *::detail::*
