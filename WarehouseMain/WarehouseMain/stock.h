@@ -5,6 +5,7 @@
 #include <map>
 
 void initializeItemID(std::map<std::string, int> &ItemMap) {
+	
 	ItemMap.insert(std::pair<std::string, int>("UFO 02 Detector", 1));
 	ItemMap.insert(std::pair<std::string, int>("Relaxman Relaxation Capsule", 2));
 	ItemMap.insert(std::pair<std::string, int>("Milk Carton Hat", 3));

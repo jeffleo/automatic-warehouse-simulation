@@ -113,6 +113,10 @@ struct Task {
 };
 
 
+std::map<int, int> Task2CustMap;			// todo map task id to customer id and order id
+
+
+
 #endif	//WAREHOUSE_COMMON_H
 
 //struct Point
