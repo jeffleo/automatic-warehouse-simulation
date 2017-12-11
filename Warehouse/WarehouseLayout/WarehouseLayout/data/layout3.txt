@@ -24,6 +24,7 @@ X                       X
 X  S  S  S  S  S  S  S  X
 X  S  S  S  S  S  S  S  X
 X  S  S  S  S  S  S  S  X
-X                  <<<^VX
-X                  >>>^VX
-XXXDDXXXXXXXXXXXXXXXRRXXX
+X                       X
+X                       X
+XXX XXXXXXXXXXXXXXXXX XXX
+XXXDXXXXXXXXXXXXXXXXXRXXX

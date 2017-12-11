@@ -1,11 +1,15 @@
 ﻿#pragma once
-#include "layout_common.h"
+#ifndef LAYOUTUI_H
+#define LAYOUTUI_H
+#include "warehouse_common.h"
 #include <cstdio>
 #include <cpen333/console.h>
 #include <thread>
 #include <chrono>
 #include <cpen333/process/mutex.h>
 #include <cpen333/process/shared_memory.h>
+#include <string>
+
 
 class LayoutUI {
 	// Ref: http://www.theasciicode.com.ar/
@@ -24,6 +28,8 @@ class LayoutUI {
 
 	static const char BLOCK = 254;   // ■
 
+	// shelf stock indicator
+
 
 	// display offset for better visibility
 	static const int XOFF = 2;
@@ -38,11 +44,15 @@ class LayoutUI {
 	int exit_[2];   // exit location
 public:
 
-	LayoutUI();
+	LayoutUI(int memoryindex);
 	~LayoutUI();
 	void draw_layout();
 	void draw_runners();
+	void draw_path(int idx);
+	void draw_stock();
 	bool quit();
 
 
+
 };
+#endif //LAYOUTUI_H

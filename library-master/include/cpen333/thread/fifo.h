@@ -60,7 +60,7 @@ class fifo {
    */
   ~fifo() {
     // free data
-    delete [] data;
+    //delete [] data;	// only if pointers
   }
 
   /**

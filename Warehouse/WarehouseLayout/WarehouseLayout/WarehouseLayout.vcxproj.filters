@@ -23,10 +23,10 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="layout_common.h">
+    <ClInclude Include="LayoutUI.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="LayoutUI.h">
+    <ClInclude Include="warehouse_common.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
