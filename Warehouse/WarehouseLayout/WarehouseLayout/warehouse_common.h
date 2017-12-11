@@ -99,21 +99,7 @@ struct SharedData {
 	
 };
 
-enum Tasktype {
-	TTneither, TTdelivery, TTrestock
-};
 
-struct Task {
-	unsigned long ID;
-	int type;							// 1 for delivery, 2 for restock, ... 0 for neither
-	std::vector<WarehouseLocation> path;
-
-	Task(unsigned long ID, enum Tasktype tasktype) : ID(ID), type(tasktype) {}
-	Task() {}
-};
-
-
-std::map<int, int> Task2CustMap;			// todo map task id to customer id and order id
 
 
 
