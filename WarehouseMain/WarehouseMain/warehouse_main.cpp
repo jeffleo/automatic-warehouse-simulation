@@ -873,8 +873,6 @@ int main(int argc, char* argv[]) {
 			if (robots.size() > 0) {
 				Task poison(0, TTpoison);
 				tasks_Q.push(poison);
-				robots.back()->join();
-				robots.pop_back();
 			}
 		}
 		if (key == "robotspeed") {

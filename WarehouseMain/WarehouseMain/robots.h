@@ -208,7 +208,7 @@ public:
 
 			if (t.type == TTdelivery) HandleDelivery(t);
 			else if (t.type == TTrestock) HandleRestock(t);
-			else if (t.type == TTpoison) continue;
+			else if (t.type == TTpoison) break;
 			else {
 				//// Just path follow 
 				for (WarehouseLocation point : t.path) {
