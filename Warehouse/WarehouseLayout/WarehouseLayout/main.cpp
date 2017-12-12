@@ -76,7 +76,9 @@ int main(int argc, char* argv[]) {
 		layout = argv[1];
 	}
 	else {
-		layout = "data/layout3.txt";
+		//layout = "data/layout3.txt";
+		//layout = "data/layout3_simple.txt";
+		layout = "data/layout4.txt";
 	}
 	
 // PREAQUIRE MEMORY NAMES (ACCESSIBLE ONLY WITHIN THIS SCOPE)

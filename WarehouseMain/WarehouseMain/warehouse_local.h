@@ -10,20 +10,31 @@
 #include <cpen333/thread/fifo.h>
 #include <cpen333\thread\semaphore.h>
 #include <cpen333\thread\condition.h>
+#include <condition_variable>
 #include <random>
+#include <cpen333/console.h>
 
+cpen333::console display_;
+// display offset for better visibility
+static const int XOFF = 2;
+static const int YOFF = 1;
 
 const int nrobots = 5;
 
 ////	ORDER 
 //list of orders received, orders ready for delivery, and orders out for delivery, ALL QUEUES
 
-//struct OrderInfo {
-//	// id and long vector of itemids
-//	int customerID;
-//	std::map<int, int> itemmap;
-//	std::vector<int> itemvect;
-//};
+struct OrderInfo {
+	// id and long vector of itemids
+	int customerID;
+	std::map<int, int> itemmap;
+	std::vector<int> itemvect;
+};
+
+
+std::mutex mutex_orderbuff;
+std::deque<OrderInfo> orderbuff;
+std::condition_variable cv_server_order;
 
 //// SHELF MAP FOR LOCATING FOR RESTOCKING
 std::map<std::pair<int, int>, WarehouseLocation&> ShelfMap;			// KEY row , col
@@ -60,7 +71,7 @@ WarehouseLocation park(1, 1);			// parking/waiting/starting locations for robots
 
 //// TASKS
 enum Tasktype {
-	TTneither, TTdelivery, TTrestock
+	TTneither, TTdelivery, TTrestock, TTpoison
 };
 
 struct Task {
@@ -79,6 +90,10 @@ cpen333::thread::fifo<Task> tasks_Q(MAX_TASKS);
 std::map<int, int> Task2CustMap;								// TODO map customer id TO task id as tasks are generated
 /////////////TRUCK
 
+//// TRUCK VECTOR INIT //
+//std::vector<truck*> trucks;
+//unsigned int truckIDcounter;
+
 struct TruckData{
 	unsigned long ID;
 	//std::array<int, MAXWAREHOUSESTOCK> items;	// a single array of items
@@ -95,6 +110,7 @@ struct TruckData{
 };
 
 
+
 // for trucks to race to aquiring a spot at the dock
 cpen333::thread::semaphore deliverydock(0);
 cpen333::thread::semaphore restockdock(0);
@@ -106,8 +122,12 @@ cpen333::thread::semaphore restock_arrived(0);
 // for notifying warehouse/truck is empty
 cpen333::thread::semaphore deliveryempty(0);
 cpen333::thread::semaphore restockempty(0);
-cpen333::thread::condition cv_res;
-cpen333::thread::condition cv_del;
+//cpen333::thread::condition cv_res;
+//cpen333::thread::condition cv_del;
+std::condition_variable cv_res;
+std::condition_variable cv_del;
+
+unsigned long taskid = 0;						// counter
 unsigned long restocktaskid = 0;				// counter
 unsigned long deliverytaskid = 0;				// counter
 
@@ -120,6 +140,8 @@ std::deque<int> del_buff;
 //////////// FOR PREALLOCATING MEMORY
 std::vector<SharedData*> shares;
 int memoryIndex;
+
+
 
 
 //// helpful functions

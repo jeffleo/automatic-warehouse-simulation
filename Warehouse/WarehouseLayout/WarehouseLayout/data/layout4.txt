@@ -26,7 +26,5 @@ X  S  S  S  S  S  S  S  X X
 X  S  S  S  S  S  S  S  X X
 X                       X X
 X                       X X
-X                       X X
-X  XXXXXXXXXXXXXXXXXXX  X X
-X  R                    X X
-XXXXXXXXXXXXXXXXXXXXXXXXXDX
+XXXXX XXXXXXXXXXXXXXXXXXX X
+XXXXXDXXXXXXXXXXXXXXXXXXXRX

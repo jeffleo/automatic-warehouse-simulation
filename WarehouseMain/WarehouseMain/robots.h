@@ -31,7 +31,7 @@ class robot : public cpen333::thread::thread_object {
 
 public:
 	unsigned int CurCapacity;						// TO VALIDATE IF CAN READ
-	int robotspeed = 50;
+	int robotspeed = 35;
 
 	//robot(int startloc[]) : memory_(WAREHOUSE_MEMORY_NAME), mutex_(WAREHOUSE_MUTEX_NAME),
 	robot(int startloc[], int memoryindex) : 
@@ -208,6 +208,7 @@ public:
 
 			if (t.type == TTdelivery) HandleDelivery(t);
 			else if (t.type == TTrestock) HandleRestock(t);
+			else if (t.type == TTpoison) continue;
 			else {
 				//// Just path follow 
 				for (WarehouseLocation point : t.path) {
@@ -216,7 +217,7 @@ public:
 
 					if (point.leftrightmiddle != 0) {
 						std::cout << " DETECTED INDICATOR, ROBOT DOING WAREHOUSE STUFF" << std::endl;
-						std::this_thread::sleep_for(std::chrono::milliseconds(600));
+						std::this_thread::sleep_for(std::chrono::milliseconds(350));
 					}
 				}
 			}
@@ -229,13 +230,14 @@ public:
 		int itemsaquired = false;
 
 		// path follow
+		int i = 0;
 		for (WarehouseLocation point : t.path) {
 			std::this_thread::sleep_for(std::chrono::milliseconds(robotspeed));
 			updateRpos(point.col, point.row);
 
 			if (point.leftrightmiddle == -1 || point.leftrightmiddle == 1) {
-				std::cout << "ROBOT: "<< idx_ <<" TAKING STOCK FROM SHELF AT " << point.col+ point.leftrightmiddle <<","<< point.row << std::endl;
-				std::this_thread::sleep_for(std::chrono::milliseconds(600));
+				std::cout << "ROBOT: "<< idx_ <<" TAKING STOCK: "<< t.items.at(i++) <<" FROM SHELF AT " << point.col- point.leftrightmiddle <<","<< point.row << std::endl;
+				std::this_thread::sleep_for(std::chrono::milliseconds(350));
 				// TODO REMOVE FROM STOCK AND PUT INTO ROBOT ITEM LIST
 				/*
 				UPDATE STOCK INFO MAP GIVEN ITEM ID
@@ -248,6 +250,10 @@ public:
 				//	itemsaquired = true;
 				// continue;
 
+
+				// update stock from list
+
+				std::this_thread::sleep_for(std::chrono::milliseconds(350));		// VISUAL CUE
 				
 			}
 			else if(point.shelflevel == -1) {
@@ -259,9 +265,17 @@ public:
 				warehouse appends order corresponding to task into outgoing delivery list
 
 				*/
+				std::this_thread::sleep_for(std::chrono::milliseconds(350));		// VISUAL CUE
+				if (deliverytaskid > 0) {
+					deliverytaskid--;
+					cv_del.notify_one();		// notify truck to check predicate if it can leave
+				}
+
+				//THEN NOTIFY TASKID IS COMPLETE 
 			}
 
-			//THEN NOTIFY TASKID IS COMPLETE
+			
+			
 		}
 	}
 
@@ -274,7 +288,7 @@ public:
 
 
 			if ( (point.leftrightmiddle == -1 || point.leftrightmiddle == 1) && itemsaquired) {
-				std::cout << "ROBOT: " << idx_ << " RESTOCKING ITEM: "<< t.items.back() <<" AT SHELF LOCATION" << point.col+ point.leftrightmiddle << "," << point.row << std::endl;
+				std::cout << "ROBOT: " << idx_ << " RESTOCKING ITEM: "<< t.items.back() <<" AT SHELF LOCATION" << point.col - point.leftrightmiddle << "," << point.row << std::endl;
 				// TODO INSERT ITEM
 				/*
 				DEQUEUE ITEM_ID
@@ -289,10 +303,11 @@ public:
 
 				// update stock from list
 				if (t.items.size() > 0) {
+					point.col -= point.leftrightmiddle;									// correct for shelf offset
 					StockUpdate(StockInfo_map, t.items.back(), point);
 					t.items.pop_back();
 					_currentstockquant++;
-					std::this_thread::sleep_for(std::chrono::milliseconds(600));		// VISUAL CUE
+					std::this_thread::sleep_for(std::chrono::milliseconds(350));		// VISUAL CUE
 					
 				}
 			}
@@ -312,11 +327,17 @@ public:
 				*/
 				//if full
 				itemsaquired = true;
+				std::this_thread::sleep_for(std::chrono::milliseconds(350));		// VISUAL CUE
 			}
-			if (restocktaskid > 0) restocktaskid--;
 
-			//THEN NOTIFY TASKID IS COMPLETE 
+
 		}
+
+		if (restocktaskid > 0) {
+			restocktaskid--;
+			cv_res.notify_one();		// notify truck to check predicate if it can leave
+		}
+		//THEN NOTIFY TASKID IS COMPLETE 
 	}
 
 
@@ -402,6 +423,7 @@ public:
 
 		//go();			// use this to test sorta random movement in warehosue
 		go2();			// use this for path testing from taskQ
+		std::cout << "Robot "  << idx_<< " Leaving"<< std::endl;
 
 		return 0;
 	}

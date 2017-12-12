@@ -29,8 +29,8 @@
 
 #define MAXWAREHOUSESTOCK 1000		// total sum of item quantitys is up to this 
 #define MAXITEMTYPES 30
-#define MAXTRUCKCAPACITY	50		//kg
-
+#define MAXTRUCKCAPACITY	10000		//kg
+#define ORDERGROUPSIZE 1			// number of orders before calling delivery truck in ClientOrderHandler
 
 #include <array>
 
@@ -44,10 +44,10 @@ struct WarehouseLocation {
 	int col;
 
 	// allocated while stocking
-	bool occupied[2][MAX_SHELF_SIZE];					// indication for empty/not empty shelf
 	int shelflevel;					// for storing item location vertically, IF -1 this is a truck location
 	int leftrightmiddle;			// -1 for left, 1 for right, 0 for middle (aka not shelf)		
 									// when storing items, decide whether or not left or right shelf
+	bool occupied[2][MAX_SHELF_SIZE];					// indication for empty/not empty shelf
 
 	WarehouseLocation() : leftrightmiddle(0), row(), col(), shelflevel(0) { 
 		for (int i = 0; i < 2; ++i) {

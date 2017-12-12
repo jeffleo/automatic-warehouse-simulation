@@ -4,10 +4,16 @@
 #include <fstream>
 #include <thread>
 
+#include "ProductLib.h"
+#include "ProductLibApi.h"
+#include "JsonProductConverter.h"
+#include "JsonProductLibraryApi.h"
+#include "WarehouseComm.h"
 
 #include <cpen333/process/mutex.h>
 #include <cpen333/process/shared_memory.h>
 #include <cpen333/process/subprocess.h>
+#include <cpen333/process/socket.h>
 #include <stdlib.h>
 
 #include "truck.h"
@@ -17,19 +23,10 @@
 #include "stock.h"
 
 #include <map>
-#include <cpen333/console.h>
 #include <string>
 
 #include <math.h>
 #include <vector>
-
-
-//std::string ExePath() {
-//	char buffer[MAX_PATH];
-//	GetModuleFileName(NULL, buffer, MAX_PATH);
-//	std::string::size_type pos = std::string(buffer).find_last_of("\\/");
-//	return std::string(buffer).substr(0, pos);
-//}
 
 
 bool tryleft(int temp[MAX_LAYOUT_SIZE][MAX_LAYOUT_SIZE], int &c, int &r, int& target) {
@@ -90,10 +87,6 @@ bool movef(int temp[MAX_LAYOUT_SIZE][MAX_LAYOUT_SIZE], int dir, int &c, int &r, 
 	return 1;
 }
 
-cpen333::console display_;
-// display offset for better visibility
-static const int XOFF = 2;
-static const int YOFF = 1;
 
 void PathGenRepeater(MazeSolver& shortest, std::vector<WarehouseLocation>& path, WarehouseLocation& startloc, WarehouseLocation& endloc) {
 	// Start to waypoint
@@ -174,42 +167,69 @@ std::vector<WarehouseLocation> PathGenerator(MazeSolver& shortest, WarehouseLoca
 
 void GenerateDeliveryTask(unsigned long &taskid, MazeSolver& shortest, Task &DeliveryTask) {
 
-	//// GO TO EACH SHELF COLUMN FROM SHELF 2, THEN GO TO DELIVERY TRUCK, THEN PARK
+	////// TESTING :: GO TO EACH SHELF COLUMN FROM SHELF 2, THEN GO TO DELIVERY TRUCK, THEN PARK
+	//std::vector<WarehouseLocation> endlocs1;
+	//for (int i = 0; i < 3; ++i) {
+	//	std::pair<int, int> key = std::make_pair(2, i);
+	//	auto it = ShelfMap.find(key);
+	//	if (it != ShelfMap.end()) {
+	//		//found 
+	//		it->second.leftrightmiddle = 1;				//GO TO RHS OF SHELF
+	//		endlocs1.push_back(it->second);
+	//	}
+	//}
+
+	//for (int i = 0; i < 3; ++i) {
+	//	std::pair<int, int> key = std::make_pair(7, i);
+	//	auto it = ShelfMap.find(key);
+	//	if (it != ShelfMap.end()) {
+	//		//found 
+	//		it->second.leftrightmiddle = -1;		//GO TO LHS OF SHELF
+	//		endlocs1.push_back(it->second);
+	//	}
+	//}
+
+	//for (int i = 4; i < 7; ++i) {
+	//	std::pair<int, int> key = std::make_pair(12, i);
+	//	auto it = ShelfMap.find(key);
+	//	if (it != ShelfMap.end()) {
+	//		//found 
+	//		it->second.leftrightmiddle = 1;		//GO TO RHS OF SHELF
+	//		endlocs1.push_back(it->second);
+	//	}
+	//}
+	//endlocs1.push_back(del_truck);
+	//endlocs1.push_back(park);
+
+	//DeliveryTask.path = PathGenerator(shortest, park, endlocs1);
+	//taskid++;
+
 	std::vector<WarehouseLocation> endlocs1;
-	for (int i = 0; i < 3; ++i) {
-		std::pair<int, int> key = std::make_pair(2, i);
-		auto it = ShelfMap.find(key);
-		if (it != ShelfMap.end()) {
+	
+
+	for (int i = 0; i < DeliveryTask.items.size(); ++i) {
+
+		auto it = StockInfo_map.find(DeliveryTask.items.at(i));
+		if (it != StockInfo_map.end()) {
 			//found 
-			it->second.leftrightmiddle = 1;				//GO TO RHS OF SHELF
-			endlocs1.push_back(it->second);
+
+			endlocs1.push_back(it->second.locations.back().second);			
+			it->second.locations.pop_back();							// delete last location since it will be taken out for delivery
+
 		}
+		else {
+			std::cout << "GenerateDeliveryTask: Don't have this item in stock: "<< DeliveryTask.items.back()  << std::endl;			// FOR DEBUGGING // try again
+
+		}
+		
 	}
 
-	for (int i = 0; i < 3; ++i) {
-		std::pair<int, int> key = std::make_pair(7, i);
-		auto it = ShelfMap.find(key);
-		if (it != ShelfMap.end()) {
-			//found 
-			it->second.leftrightmiddle = -1;		//GO TO LHS OF SHELF
-			endlocs1.push_back(it->second);
-		}
-	}
-
-	for (int i = 4; i < 7; ++i) {
-		std::pair<int, int> key = std::make_pair(12, i);
-		auto it = ShelfMap.find(key);
-		if (it != ShelfMap.end()) {
-			//found 
-			it->second.leftrightmiddle = 1;		//GO TO RHS OF SHELF
-			endlocs1.push_back(it->second);
-		}
-	}
 	endlocs1.push_back(del_truck);
 	endlocs1.push_back(park);
 
 	DeliveryTask.path = PathGenerator(shortest, park, endlocs1);
 	taskid++;
+	cv_del.notify_one();
 }
 
 void GenerateRestockTask(unsigned long &taskid, MazeSolver& shortest, Task &RestockTask) {
@@ -252,9 +272,8 @@ void GenerateRestockTask(unsigned long &taskid, MazeSolver& shortest, Task &Rest
 
 	endlocs2.push_back(park);
 	RestockTask.path = PathGenerator(shortest, park, endlocs2);
-
 	taskid++;
-
+	cv_res.notify_one();
 
 	////// TEST PATH GENERATION: GO TO RESTOCK TRUCK, THEN GO TO EACH SHELF COLUMN FROM SHELF 2, THEN PARK
 	//std::vector<WarehouseLocation> endlocs2;
@@ -301,9 +320,10 @@ void CallRestock(std::map<int, int> &items, unsigned int &truckcounter, int &mem
 		// count weight of items and partition truck calls
 		float weight = 0;
 		int i = 0;
-		for (std::map<int, int>::iterator it = items.begin(); it != items.end(); ++it) {	// iterate through entire map, accumulating weight
+		//for (std::map<int, int>::iterator it = items.begin(); it != items.end(); ++it) {	// iterate through entire map, accumulating weight
+		for (int item : itemvect){
 
-			auto itstock = StockInfo_map.find(it->second);
+			auto itstock = StockInfo_map.find(item);
 			if (itstock != StockInfo_map.end()) {
 				//found 
 				if (weight + itstock->second.mass >= MAXTRUCKCAPACITY) {
@@ -320,8 +340,8 @@ void CallRestock(std::map<int, int> &items, unsigned int &truckcounter, int &mem
 					weight = 0;														// reset for another truck
 				}
 				weight += itstock->second.mass;
-				restockitems.emplace_back(itemvect.back());
-				itemvect.pop_back();
+				restockitems.emplace_back(item);
+				//itemvect.pop_back();
 			}
 		}
 
@@ -373,17 +393,16 @@ void res_dockHandler(MazeSolver &shortest) {
 					float weight = 0;														// reset weight for next robot
 				}
 				weight += itstock->second.mass;
-				restockitems.emplace_back(res_buff.front());
-				res_buff.pop_front();
-
+				restockitems.emplace_back(res_buff.back());
+				res_buff.pop_back();
 			}
 			
 		}
 		
 
 		if (restockitems.size() > 0) {
-			restocktasks.push_back(Task(restocktaskid, TTrestock, restockitems));
-			GenerateRestockTask(restocktaskid, shortest, restocktasks.back());
+			restocktasks.push_back(Task(taskid, TTrestock, restockitems));
+			GenerateRestockTask(taskid, shortest, restocktasks.back());
 
 		}
 		std::cout << "Done generating restock tasks. Created : "<< i << std::endl;
@@ -397,9 +416,183 @@ void res_dockHandler(MazeSolver &shortest) {
 }
 
 
+// CALL/CREATES DELIVERY TRUCK THREAD GIVEN INPUT ITEM_ID->QUANTY MAP
+void CallDelivery(struct OrderInfo order, unsigned int &truckcounter, int &memoryindex, std::vector<truck*>& trucks) {
+		// TODO PASS ORDER INFO INTO TRUCK SO DELIVERY TRUCK KNOWS WHICH ORDER IT FULFILLED
+
+	std::vector<int> itemvect = order.itemvect;
+	std::vector<int> deliveryitems;
+	std::cout << "Requesting Delivery of:\n" << std::endl;
+
+	if (_currentstockquant - (int)(itemvect.size()) >= 0) {	// check if warehouse stock underflows first
+		
+		// count weight of items and partition truck calls
+		float weight = 0;
+		int i = 0;
+		for (auto item : itemvect) {	// iterate through entire map, accumulating weight
+			std::cout << " ItemID: " << item << '\n';
+
+			auto itstock = StockInfo_map.find(item);
+			if (itstock != StockInfo_map.end()) {													// ITEM FOUND IN INVENTORY
+				if (itstock->second.quantity > 0) {												// ITEM IN STOCK
+					itstock->second.quantity--;														// DECREASE ITEM COUNT
+					_currentstockquant--;
+
+					//found 
+					if (weight + itstock->second.mass >= MAXTRUCKCAPACITY) {
+						std::cout << " Delivery truck overloaded, sending out multiple delivery truck for this delivery. Count " << i++ << std::endl;
+
+						TruckData truckdata(truckcounter, TTrestock, deliveryitems, weight);
+						//TruckData truckdata(truckcounter, TTrestock, items, weight);
+						trucks.push_back(new truck(res_truck, memoryindex, truckdata));	// push restock truck thread
+						trucks.back()->start();											// starts a restock truck thread	// VALIDATE
+
+						truckcounter++;
+						deliveryitems.clear();												// clear restock list for next truck
+						weight = 0;														// reset for another truck
+					}
+					weight += itstock->second.mass;
+					deliveryitems.emplace_back(item);
+					//itemvect.pop_back();
+				}
+				else {
+					std::cout << " Item out of stock. Canceling order for customer: " << order.customerID << std::endl;
+				}
+			}
+			else {
+				std::cout << " Don't have this Item. Canceling order for customer: "<< order.customerID << std::endl;
+			}
+		}
+
+		if (deliveryitems.size() > 0) {
+			TruckData truckdata(truckcounter, TTdelivery, deliveryitems, weight);
+			trucks.push_back(new truck(res_truck, memoryindex, truckdata));		// push delivery truck thread
+			trucks.back()->start();												// starts a delivery truck thread	// VALIDATE
+			truckcounter++;
+
+			std::cout << "Order for customer: " << order.customerID << " called out for delivery" << std::endl;
+
+		}
+	}
+	else {
+		std::cout << "WAREHOUSE STOCK UNDERFLOW, DELIVERY ORDER CANCELED" << std::endl;
+	}
+}
+
+// HANDLES DELIVERY TRUCK DOCKING SEMEPHORES, UNLOADING ITEMS, AND GENERATING DELVIERY TASKS FOR ROBOTS
+void del_dockHandler(MazeSolver &shortest) {
+	std::cout << "Delivery dock handler thread started \n";
+
+	while (true) {
+		deliverydock.notify();		// open dock 
+		delivery_arrived.wait();	// wait for a truck to arrive
+		std::cout << "Delivery truck arrival detected, handler thread creating deliverydock tasks \n";
+
+		// read delivery truck buffer of items
+		// GENERATE TASK FOR ROBOT TO PICKUP FROM TRUCK, partition by robot capacity
+		std::vector<int> deliveryitems;
+
+		float weight = 0;
+		int i = 1;
+		std::vector<Task> deliverytasks;
+
+		std::unique_lock<decltype(mutex_dbuff)> dlock(mutex_dbuff);
+		while (!del_buff.empty()) {
+
+			auto itstock = StockInfo_map.find(del_buff.back());
+			if (itstock != StockInfo_map.end()) {
+				//found 
+				if (weight + itstock->second.mass >= MAX_ROBOT_CAPACITY) {
+					std::cout << " Robot overloaded, sending out multiple robots for this delivery. Count " << i++ << std::endl;
+
+					//deliveryitems.emplace_back(del_buff.front());							// for fixing missing last item bug
+					deliverytasks.push_back(Task(deliverytaskid, TTdelivery, deliveryitems));
+					GenerateDeliveryTask(deliverytaskid, shortest, deliverytasks.back());
+					deliverytasks.clear();													// reset vector for next robot
+					float weight = 0;														// reset weight for next robot
+				}
+				weight += itstock->second.mass;
+				deliveryitems.emplace_back(del_buff.back());
+				del_buff.pop_back();
+			}
+			else {
+				std::cout << " del_dockHandler : item not found" << std::endl;
+			}
+
+		}
+
+		if (deliveryitems.size() > 0) {
+			deliverytasks.push_back(Task(taskid, TTdelivery, deliveryitems));
+			GenerateDeliveryTask(taskid, shortest, deliverytasks.back());
+
+		}
+		std::cout << "Done generating delivery tasks. Created : " << i << std::endl;
+
+		for (Task task : deliverytasks) {
+			tasks_Q.push(task);													// push into q for robots
+		}
+		deliverytasks.clear();
+
+	}
+}
+
+void init_client_socket(std::string& server, int& port) {
+
+	std::cout << "Enter address: ";
+	std::cin >> server;
+
+
+	std::cout << "Trying default port 5120 " << std::endl;
+	port = 5120;
+
+	//std::cout << "Enter port:    ";
+	//std::cin >> port;
+	//std::cout << std::endl;
+
+	if (port == 0)	port = CPEN333_SOCKET_DEFAULT_PORT;
+
+	// ignore the newline after we read a port, otherwise will
+	//  interfere with reading a name
+	std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+	// create client and connect to socket
+	std::cout << "connecting to port: " << port << std::endl;
+
+}
+
+void ClientOrderHandler(unsigned int &truckIDcounter, int &memoryIndex , std::vector<truck*> &trucks) {
+	while (true) {
+
+		std::unique_lock<std::mutex> uniquemutexref_(mutex_orderbuff);
+		cv_server_order.wait(uniquemutexref_, [&]() { return orderbuff.size() == ORDERGROUPSIZE; });		// TO CHANGE??
+
+		while (!orderbuff.empty()) {
+			OrderInfo order = orderbuff.front();
+			orderbuff.pop_front();
+			CallDelivery(order, truckIDcounter, memoryIndex, trucks);
+		}
+	}
+}
+
 int main(int argc, char* argv[]) {
 	//std::cout << "my directory is " << ExePath() << "\n";
-	
+
+
+	//if (uses) {
+	//		std::string address;
+	//		int port;
+	//		init_client_socket(address, port);
+	//
+	//	//Initialize Socket
+	//	cpen333::process::socket socket(address, WAREHOUSESERVERPORT);
+	//	std::cout << "Connecting to Amazoom...";
+	//	std::cout.flush();
+
+
+	//	//GetOrdersFromServer(socket); //starts listening for orders coming in and writing it by reference to orderqueue;
+	//	std::thread OrderThread(GetOrdersFromServer, std::ref(socket));
+	//	OrderThread.detach();
+	//}
 
 	//std::vector<std::string> args3;
 	//args3.push_back("cd ..\..\..\Warehouse/WarehouseLayout/x64/Debug/WarehouseLayout.exe");	// program name in arg[0]	// use ./ if up a folder
@@ -420,8 +613,27 @@ int main(int argc, char* argv[]) {
 	//	return 0;
 	//}
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-	// PREAQUIRE MEMORY NAMES 
+	
+	//std::string usesockets;
+	//std::cout << "Use sockets? (y/n) ";
+	//std::cin >> usesockets;
+	//bool uses = false;
+	//if (usesockets.compare("y") == 0)	uses = true;
+	//else uses = false;
+
+	//if (uses) {
+		////////////////////////////////////////////////////////////////////////////SOCKETS CODE
+		cpen333::process::socket socket("localhost", WAREHOUSESERVERPORT);
+		std::cout << "Connecting to Amazoom...";
+		std::cout.flush();
+		std::thread(GetOrdersFromServer, std::ref(socket)).detach();
+
+	//}
+
+	//OrderInfo test;
+	//test.customerID = 1;
+	//RejectOrder(test, socket);
+;//////////////////////////////////////////////////////////////////////////////////////////////////////// PREAQUIRE MEMORY NAMES 
 	int i = 0;
 	std::string memoryname = WAREHOUSE_MEMORY_NAME + std::to_string(i++);
 
@@ -493,7 +705,6 @@ int main(int argc, char* argv[]) {
 
 	// shortest path solver init
 	MazeSolver shortest(shared->layinfo.rows, shared->layinfo.cols, memoryIndex);
-
 
 //////////////////////////////////////////////////////////////////////////////////	find all truck, shelve locations, and waiting stalls 
 
@@ -598,24 +809,26 @@ int main(int argc, char* argv[]) {
 
 	// item_id , quantity
 	std::map<int, int> Restock_map;
-	RandomStockGenerator(Restock_map, 10);			// generate map of itemid -> quantity = 1, with num of types of items
+	//RandomStockGenerator(Restock_map, 10);			// generate map of itemid -> quantity = 1, with num of types of items
+
 
 
 	// TRUCK HANDLER THREAD INIT //
 	std::thread(res_dockHandler, std::ref(shortest)).detach();
-																	//TODO DELIVERY
+	std::thread(del_dockHandler, std::ref(shortest)).detach();						//TODO DELIVERY
 
 	// TRUCK VECTOR INIT //
 	std::vector<truck*> trucks;
-
+	unsigned int truckIDcounter;
 
 	// INITIAL WAREHOUSE RESTOCK CALL //
-	unsigned int truckIDcounter = 0;
-	CallRestock(Restock_map, truckIDcounter, memoryIndex, trucks);
+	
+	/*CallRestock(Restock_map, truckIDcounter, memoryIndex, trucks);*/
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-	// need to recieve a notify when called truckID docks
+	// 
+	std::thread(ClientOrderHandler, std::ref(truckIDcounter), std::ref(memoryIndex), std::ref(trucks)).detach();
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -623,24 +836,33 @@ int main(int argc, char* argv[]) {
 	
 	//endlocs.push_back(WarehouseLocation(6, 9, 1, 2));		// basic zig zag test
 
-	Task DeliveryTask(taskid, TTdelivery);
-	GenerateDeliveryTask(taskid, shortest, DeliveryTask);
+	//Task DeliveryTask(taskid, TTdelivery);
+	//GenerateDeliveryTask(taskid, shortest, DeliveryTask);
 
 	//Task RestockTask(taskid,TTrestock);
 	//GenerateRestockTask(taskid, shortest, RestockTask);
 
 
-	std::string key = " ";
+	std::string key = "menu";
 	while (key != "e") {
-		std::cout << "Enter e to exit, d for delivery, r for restock \n";
-		std::cin >> key;
-		std::cout << "You pressed " << key << std::endl;
+		
+
 
 		if (key == "d") {
-			tasks_Q.push(DeliveryTask);
+			//tasks_Q.push(DeliveryTask);
+
+			std::cout << "Requesting delivering of : \n";
+			OrderInfo deliverytest;
+
+			deliverytest.customerID = 0;
+			map2vect(Restock_map, deliverytest.itemvect, true);
+			CallDelivery(deliverytest, truckIDcounter, memoryIndex, trucks);
 		}
 		if (key == "r") {
 			//tasks_Q.push(RestockTask);
+			//std::cout << "Requesting restock of of : \n";
+			Restock_map.clear();
+			RandomStockGenerator(Restock_map, 3);			// generate map of itemid -> quantity = 1, with num of types of items
 			CallRestock(Restock_map, truckIDcounter, memoryIndex, trucks);
 		}
 		if (key == "robot+1") {
@@ -649,6 +871,8 @@ int main(int argc, char* argv[]) {
 		}
 		if (key == "robot-1") {
 			if (robots.size() > 0) {
+				Task poison(0, TTpoison);
+				tasks_Q.push(poison);
 				robots.back()->join();
 				robots.pop_back();
 			}
@@ -662,6 +886,80 @@ int main(int argc, char* argv[]) {
 				}
 			}
 		}
+
+		if (key == "query") {
+			int item = 0;
+			std::cin >> item;
+			if (item > 0) {
+				int quantity = StockQuery(StockInfo_map, item);
+				std::cout << item << " has quantity: " << quantity << std::endl;
+			}
+		}
+
+		if (key == "restock") {
+			char more = 'y';
+			Restock_map.clear();
+			while (more == 'y') {
+				int item = 0;
+				std::cin >> item;
+				int quantity = 0;
+				std::cin >> quantity;
+
+				if (item > 0 && quantity > 0) {
+
+					Restock_map.insert(std::make_pair(item, quantity));
+					std::cout << "You chose to restock item: " << item << " quantity: " << quantity << std::endl;
+					std::cout << "more items? write y " << std::endl;
+					std::cin >> more;
+
+					if (more != 'y') {
+						CallRestock(Restock_map, truckIDcounter, memoryIndex, trucks);
+					}
+
+				}
+				else std::cout << "Invalid" << std::endl;
+			}
+		}
+
+		if (key == "deliver") {
+			OrderInfo deliverytest;
+			deliverytest.customerID = 0;
+			std::map<int, int> delivery_map;
+			char more = 'y';
+
+			while (more == 'y') {
+				int item = 0;
+				std::cin >> item;
+				int quantity = 0;
+				std::cin >> quantity;
+
+				if (item > 0 && quantity > 0) {
+					delivery_map.insert(std::make_pair(item, quantity));
+					std::cout << "You chose to deliver item: " << item << " quantity: " << quantity << std::endl;
+					std::cout << "more items? write y " << std::endl;
+					std::cin >> more;
+
+					if (more != 'y') {
+						map2vect(delivery_map, deliverytest.itemvect, true);
+						CallDelivery(deliverytest, truckIDcounter, memoryIndex, trucks);
+					}
+
+				}
+				else std::cout << "Invalid" << std::endl;
+			}
+		}
+		
+
+		if (key == "menu") {
+			std::cout << "//////////////////////////WAREHOUSE MENU OPTIONS//////////////////////////////////\n";
+			std::cout << "Enter e to exit, d for random delivery, r for random restock \n";
+			std::cout << "query item_id<int> for quantity, restock item_id<int> quantity<int>,  \n";
+			std::cout << "robot+1 to add one more robot, robot-1 to remove a robot, robotspeed speed<int> \n";
+			std::cout << "//////////////////////////END OF MENU OPTIONS/////////////////////////////////////\n";
+		}
+
+		std::cin >> key;
+		std::cout << "You pressed " << key << std::endl;
 
 	}
 
