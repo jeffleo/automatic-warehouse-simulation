@@ -10,16 +10,18 @@
 #include <cpen333/process/subprocess.h>
 #include <stdlib.h>
 
+#include "truck.h"
 #include "robots.h"
 #include "warehouse_local.h"
 #include "ShortestPath.h"
+#include "stock.h"
 
 #include <map>
 #include <cpen333/console.h>
 #include <string>
-#include <random>
-#include <math.h>
 
+#include <math.h>
+#include <vector>
 
 
 //std::string ExePath() {
@@ -28,16 +30,7 @@
 //	std::string::size_type pos = std::string(buffer).find_last_of("\\/");
 //	return std::string(buffer).substr(0, pos);
 //}
-int randomnum(int min, int max) {
-	// single instance of random engine and distribution
-	//static std::default_random_engine rnd;
-	std::default_random_engine rnd(
-		std::chrono::system_clock::now().time_since_epoch().count());	// seed rand function with time to generate different random value each time
 
-	static std::uniform_real_distribution<double> dist(-min, max);
-
-	return (int)ceil(dist(rnd));
-}
 
 bool tryleft(int temp[MAX_LAYOUT_SIZE][MAX_LAYOUT_SIZE], int &c, int &r, int& target) {
 	if (c > 0 &&  temp[c - 1][r] == target) { // try going left
@@ -220,25 +213,189 @@ void GenerateDeliveryTask(unsigned long &taskid, MazeSolver& shortest, Task &Del
 }
 
 void GenerateRestockTask(unsigned long &taskid, MazeSolver& shortest, Task &RestockTask) {
-
+	//// PATH GENERATION: GO TO RESTOCK TRUCK, THEN GO TO RANDOM SHELF COL AND ROW, THEN PARK, 
 	std::vector<WarehouseLocation> endlocs2;
-
-	//// GO TO RESTOCK TRUCK, THEN GO TO EACH SHELF COLUMN FROM SHELF 2, THEN PARK
 	endlocs2.push_back(res_truck);
-	for (int i = 0; i < 6; ++i) {
-		std::pair<int, int> key = std::make_pair(2, i);
-		auto it = ShelfMap.find(key);
-		if (it != ShelfMap.end()) {
-			//found 
-			it->second.leftrightmiddle = 1;		//GO TO RHS OF SHELF
-			endlocs2.push_back(it->second);
+
+	for (int i = 0; i < RestockTask.items.size(); ++i) {
+		bool emptylocation = false;
+
+		while (!emptylocation) {
+			std::pair<int, int> key = std::make_pair(randomnum(0, shelves_rows), randomnum(0, shelves_cols));		//// rows / cols -> MAPPED TO A LOCATION 
+			auto it = ShelfMap.find(key);
+			if (it != ShelfMap.end()) {
+				//found 
+
+				// CHECKING OCCUPATION
+
+				// int leftright = randomnum(0, 2);		//GO TO LEFT OR RIGHT OF SHELF RANDOMLY
+				// int shelf = randomnum(0, 6);
+				//if (it->second.occupied[leftright][shelf] == false) {
+				//	//it->second.leftrightmiddle = ;
+				//	endlocs2.push_back(it->second);
+				//	emptylocation = true;
+				//}
+				//else {
+
+				//}
+				it->second.leftrightmiddle = randomnum(-1.0,1.0);
+				endlocs2.push_back(it->second);							// just any random shelf location will do for now
+				emptylocation = true;
+			}
+			else {
+				//std::cout << " Wrong shelf input" << std::endl;			// FOR DEBUGGING // try again
+				
+			}
 		}
+
 	}
+
 	endlocs2.push_back(park);
 	RestockTask.path = PathGenerator(shortest, park, endlocs2);
 
 	taskid++;
+
+
+	////// TEST PATH GENERATION: GO TO RESTOCK TRUCK, THEN GO TO EACH SHELF COLUMN FROM SHELF 2, THEN PARK
+	//std::vector<WarehouseLocation> endlocs2;
+	//endlocs2.push_back(res_truck);
+
+	//for (int i = 0; i < 6; ++i) {
+	//	std::pair<int, int> key = std::make_pair(2, i);
+	//	auto it = ShelfMap.find(key);
+	//	if (it != ShelfMap.end()) {
+	//		//found 
+	//		it->second.leftrightmiddle = 1;		//GO TO RHS OF SHELF
+	//		endlocs2.push_back(it->second);
+	//	}
+	//}
+
+	//endlocs2.push_back(park);
+	//RestockTask.path = PathGenerator(shortest, park, endlocs2);
+
+	//taskid++;
 }
+
+void map2vect(std::map<int, int>& items, std::vector<int> &itemvect, bool print) {
+
+	for (std::map<int, int>::iterator it = items.begin(); it != items.end(); ++it) {
+		if (print) std::cout << "Quantity:" << it->second << " => ItemID: " << it->first << '\n';
+
+		for (int i = 0; i < it->second; ++i) {
+			itemvect.push_back(it->first);
+		}
+		
+	}
+}
+
+// CALL/CREATES RESTOCK TRUCK THREAD GIVEN INPUT ITEM_ID->QUANTY MAP
+void CallRestock(std::map<int, int> &items, unsigned int &truckcounter, int &memoryindex, std::vector<truck*>& trucks ) {
+	std::vector<int> itemvect;
+	std::cout << "Requesting Restock of:\n" << std::endl;	
+	map2vect(items, itemvect, true);
+
+	std::vector<int> restockitems;
+		
+	if (_currentstockquant + itemvect.size() < MAXWAREHOUSESTOCK) {	// check if warehouse stock overstock first
+		
+		// count weight of items and partition truck calls
+		float weight = 0;
+		int i = 0;
+		for (std::map<int, int>::iterator it = items.begin(); it != items.end(); ++it) {	// iterate through entire map, accumulating weight
+
+			auto itstock = StockInfo_map.find(it->second);
+			if (itstock != StockInfo_map.end()) {
+				//found 
+				if (weight + itstock->second.mass >= MAXTRUCKCAPACITY) {
+					std::cout << " Restock truck overloaded, sending out multiple restock truck for this restock. Count "<< i++ << std::endl;
+
+					TruckData truckdata(truckcounter, TTrestock, restockitems, weight);
+					//TruckData truckdata(truckcounter, TTrestock, items, weight);
+					trucks.push_back(new truck(res_truck, memoryindex, truckdata));	// push restock truck thread
+					trucks.back()->start();											// starts a restock truck thread	// VALIDATE
+											
+
+					truckcounter++;
+					restockitems.clear();												// clear restock list for next truck
+					weight = 0;														// reset for another truck
+				}
+				weight += itstock->second.mass;
+				restockitems.emplace_back(itemvect.back());
+				itemvect.pop_back();
+			}
+		}
+
+		
+		if (restockitems.size() > 0) {
+			TruckData truckdata(truckcounter, TTrestock, restockitems, weight);
+			trucks.push_back(new truck(res_truck, memoryindex, truckdata));		// push restock truck thread
+			trucks.back()->start();												// starts a restock truck thread	// VALIDATE
+			truckcounter++;
+
+		}
+	}
+	else {
+		std::cout << "WAREHOUSE STOCK OVERFLOW, RESTOCK ORDER CANCELED" << std::endl;
+	}
+}
+
+// HANDLES RESTOCK TRUCK DOCKING SEMEPHORES, UNLOADING ITEMS, AND GENERATING RESTOCK TASKS FOR ROBOTS
+void res_dockHandler(MazeSolver &shortest) {
+	std::cout << "Restock dock handler thread started \n";
+	
+
+	while (true) {
+		restockdock.notify();		// open dock 
+		restock_arrived.wait();		// wait for a truck to arrive
+		std::cout << "Restock truck arrival detected, handler thread creating restock tasks \n";
+
+		// todo read restock truck buffer of items
+		// GENERATE TASK FOR ROBOT TO PICKUP FROM TRUCK, partition by robot capacity
+		std::vector<int> restockitems;
+
+		float weight = 0;
+		int i = 1;
+		std::vector<Task> restocktasks;
+
+		std::unique_lock<decltype(mutex_rbuff)> rlock(mutex_rbuff);
+		while (!res_buff.empty()) {
+
+			auto itstock = StockInfo_map.find(res_buff.back());
+			if (itstock != StockInfo_map.end()) {
+				//found 
+				if (weight + itstock->second.mass >= MAX_ROBOT_CAPACITY) {
+					std::cout << " Robot overloaded, sending out multiple robots for this restock. Count " << i++ << std::endl;
+
+					restocktasks.push_back(Task(restocktaskid, TTrestock, restockitems));
+					GenerateRestockTask(restocktaskid, shortest, restocktasks.back());
+
+					restockitems.clear();													// reset vector for next robot
+					float weight = 0;														// reset weight for next robot
+				}
+				weight += itstock->second.mass;
+				restockitems.emplace_back(res_buff.front());
+				res_buff.pop_front();
+
+			}
+			
+		}
+		
+
+		if (restockitems.size() > 0) {
+			restocktasks.push_back(Task(restocktaskid, TTrestock, restockitems));
+			GenerateRestockTask(restocktaskid, shortest, restocktasks.back());
+
+		}
+		std::cout << "Done generating restock tasks. Created : "<< i << std::endl;
+
+		for (Task task : restocktasks) {
+			tasks_Q.push(task);													// push into q for robots
+		}
+		restocktasks.clear();
+		
+	}
+}
+
 
 int main(int argc, char* argv[]) {
 	//std::cout << "my directory is " << ExePath() << "\n";
@@ -262,6 +419,7 @@ int main(int argc, char* argv[]) {
 	//	cpen333::pause();
 	//	return 0;
 	//}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 	// PREAQUIRE MEMORY NAMES 
 	int i = 0;
@@ -362,8 +520,8 @@ int main(int argc, char* argv[]) {
 				// maps and counts shelves to rows and columns according the layout
 				if (r != lastrow) {
 					if (r > shelfcounter_r) {
-						std::lock_guard<decltype(mutex_)> lock(mutex_);
-						linfo.shelves_rows++;	// counts once every time on new row, only till end  of linfo.rows as it does not get reset
+						//std::lock_guard<decltype(mutex_)> lock(mutex_);
+						shelves_rows++;	// counts once every time on new row, only till end  of linfo.rows as it does not get reset
 					}
 
 					shelfcounter_r = r;			// if been at this row, prevent from counting again
@@ -375,7 +533,7 @@ int main(int argc, char* argv[]) {
 				if (c != lastcol) {
 
 					mutex_.lock();
-					linfo.WL[r][c].occupied = false;
+					
 					mutex_.unlock();
 
 					std::pair<int, int> key = std::make_pair(shelfindex_r, shelfindex_c++);
@@ -385,8 +543,8 @@ int main(int argc, char* argv[]) {
 					ShelfMap.insert({ key, linfo.WL[c][r]});
 
 					if (c > shelfcounter_c) {
-						std::lock_guard<decltype(mutex_)> lock(mutex_);
-						linfo.shelves_cols++;		// counts once every time on new col, only till end  of linfo.cols as it does not get reset
+						//std::lock_guard<decltype(mutex_)> lock(mutex_);
+						shelves_cols++;		// counts once every time on new col, only till end  of linfo.cols as it does not get reset
 					}
 
 					shelfcounter_c = c;				// if been at this column, prevent from counting again
@@ -416,54 +574,99 @@ int main(int argc, char* argv[]) {
 		shelfindex_c = 0;		// restart column for next row
 	}
 
-
-	
-	
 //////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
+	// ROBOT INIT // 
 	std::vector<robot*> robots;
 
 	int startloc[2];
-
+	startloc[0] = 1;
+	startloc[1] = 1;
 	for (int i = 0; i<nrobots; ++i) {
-		startloc[0] = 1;
-		startloc[1] = 5;
 		robots.push_back(new robot(startloc, memoryIndex));
 	}
 	// start 
 	for (auto& robot : robots) {
 		robot->start();
 	}
+/////////////////////////////////////////////////////////////////////////////////////////////////
+	// STOCK INIT //
+
 	
+	GenerateStockInfo(StockInfo_map);				// preallocation of all 30 itemsinfo in a stockinfo map with 0 quantity
+
+	// item_id , quantity
+	std::map<int, int> Restock_map;
+	RandomStockGenerator(Restock_map, 10);			// generate map of itemid -> quantity = 1, with num of types of items
+
+
+	// TRUCK HANDLER THREAD INIT //
+	std::thread(res_dockHandler, std::ref(shortest)).detach();
+																	//TODO DELIVERY
+
+	// TRUCK VECTOR INIT //
+	std::vector<truck*> trucks;
+
+
+	// INITIAL WAREHOUSE RESTOCK CALL //
+	unsigned int truckIDcounter = 0;
+	CallRestock(Restock_map, truckIDcounter, memoryIndex, trucks);
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+	// need to recieve a notify when called truckID docks
+
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
-	unsigned long taskid = 0;
+	unsigned long taskid = 0;			// counter
 	
 	//endlocs.push_back(WarehouseLocation(6, 9, 1, 2));		// basic zig zag test
 
-	
 	Task DeliveryTask(taskid, TTdelivery);
 	GenerateDeliveryTask(taskid, shortest, DeliveryTask);
 
-	Task RestockTask(taskid,TTrestock);
-	GenerateRestockTask(taskid, shortest, RestockTask);
+	//Task RestockTask(taskid,TTrestock);
+	//GenerateRestockTask(taskid, shortest, RestockTask);
 
 
-	char key=' ';
-	while (key != 'e') {
+	std::string key = " ";
+	while (key != "e") {
 		std::cout << "Enter e to exit, d for delivery, r for restock \n";
 		std::cin >> key;
 		std::cout << "You pressed " << key << std::endl;
 
-		if (key == 'd') {
+		if (key == "d") {
 			tasks_Q.push(DeliveryTask);
 		}
-		if (key == 'r') {
-			tasks_Q.push(RestockTask);
+		if (key == "r") {
+			//tasks_Q.push(RestockTask);
+			CallRestock(Restock_map, truckIDcounter, memoryIndex, trucks);
+		}
+		if (key == "robot+1") {
+			robots.push_back(new robot(startloc, memoryIndex));
+			robots.back()->start();
+		}
+		if (key == "robot-1") {
+			if (robots.size() > 0) {
+				robots.back()->join();
+				robots.pop_back();
+			}
+		}
+		if (key == "robotspeed") {
+			int speed = 0;
+			std::cin >> speed;
+			if (speed > 0) {
+				for (auto& robot : robots) {
+					robot->robotspeed = speed;
+				}
+			}
 		}
 
 	}
+
+	//Task2CustMap
+
 	cpen333::pause();
 
 

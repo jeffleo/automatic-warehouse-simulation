@@ -27,8 +27,12 @@
 #define MAX_TASKS 100
 #define MAX_ROBOT_CAPACITY 40		// kg
 
+#define MAXWAREHOUSESTOCK 1000		// total sum of item quantitys is up to this 
+#define MAXITEMTYPES 30
+#define MAXTRUCKCAPACITY	50		//kg
+
+
 #include <array>
-#include <vector>
 
 #include <cpen333/process/mutex.h>
 #include <cpen333/process/shared_memory.h>
@@ -40,16 +44,37 @@ struct WarehouseLocation {
 	int col;
 
 	// allocated while stocking
+	bool occupied[2][MAX_SHELF_SIZE];					// indication for empty/not empty shelf
 	int shelflevel;					// for storing item location vertically, IF -1 this is a truck location
-	bool occupied;					// indication for empty/not empty shelf
-
 	int leftrightmiddle;			// -1 for left, 1 for right, 0 for middle (aka not shelf)		
 									// when storing items, decide whether or not left or right shelf
 
-	WarehouseLocation() : occupied(false), leftrightmiddle(0), row(), col(), shelflevel(0) { }
-	WarehouseLocation(int row, int col) : occupied(false), leftrightmiddle(0), shelflevel(0), row(row), col(col) {}		// for locating basic points
-	WarehouseLocation(int row, int col, int leftrightmiddle, int shelflevel) : 
-		occupied(true), leftrightmiddle(leftrightmiddle), row(row), col(col), shelflevel(shelflevel) {}		// for locating item stocking; NOTE DEFAULT occupied = true
+	WarehouseLocation() : leftrightmiddle(0), row(), col(), shelflevel(0) { 
+		for (int i = 0; i < 2; ++i) {
+			for (int j = 0; j < MAX_SHELF_SIZE; ++j) {
+				occupied[i][j] = false;
+			}
+		}
+	}
+	WarehouseLocation(int row, int col) : leftrightmiddle(0), shelflevel(0), row(row), col(col) {// for locating basic points
+		for (int i = 0; i < 2; ++i) {
+			for (int j = 0; j < MAX_SHELF_SIZE; ++j) {
+				occupied[i][j] = false;
+			}
+		}
+	}		
+
+	// shouldn't use, should already be preallocated when shelf mapping
+	//WarehouseLocation(int row, int col, int leftrightmiddle, int shelflevel) :			// for locating item stocking??; NOTE DEFAULT occupied = true
+	//	leftrightmiddle(leftrightmiddle), row(row), col(col), shelflevel(shelflevel) {
+	//	
+	//	occupied[ceil(leftrightmiddle)][shelflevel] = true;
+
+	//}		
+};
+
+struct StockLocation {
+
 };
 
 struct LayoutInfo {
@@ -60,14 +85,16 @@ struct LayoutInfo {
 
 	std::array<std::array<int, MAX_LAYOUT_SIZE>, MAX_LAYOUT_SIZE> acc;
 
-	/*int visits[MAX_LAYOUT_SIZE][MAX_LAYOUT_SIZE];*/
-
-
 	WarehouseLocation WL[MAX_LAYOUT_SIZE][MAX_LAYOUT_SIZE];		// for defining location its type for each [row][column]
 																// Preallocated memory even though won't use all
-	int shelves_rows;		// rows of shelfs 
-	int shelves_cols;		// cols of shelfs 
+};
 
+
+struct TruckInfo {
+	int ntrucks;			// number trucks
+	int tloc[MAX_BOTS][2];  // truck locations [idx][col:0 row:1]
+	bool re_docked;		
+	bool del_docked;
 };
 
 
@@ -93,11 +120,14 @@ struct SharedData {
 	LayoutInfo layinfo;    
 	RunnerInfo rinfo;
 	RRbot rrbot_info[MAX_BOTS];  // Retieve and restock bot info
+	TruckInfo tinfo;
+
 	bool quit;         // tell everyone to quit
 	int  magic;        // magic number for detecting layout initialization
 	int magicW;			// magic number for detecting warehouse initialization
-	
+
 };
+
 
 
 

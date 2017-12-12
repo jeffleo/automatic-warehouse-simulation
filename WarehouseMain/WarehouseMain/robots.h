@@ -14,7 +14,7 @@
 #include <string>
 
 #include "warehouse_local.h"
-
+#include "stock.h"
 
 class robot : public cpen333::thread::thread_object {
 	//cpen333::process::shared_object<SharedData> memory_;
@@ -31,7 +31,7 @@ class robot : public cpen333::thread::thread_object {
 
 public:
 	unsigned int CurCapacity;						// TO VALIDATE IF CAN READ
-
+	int robotspeed = 50;
 
 	//robot(int startloc[]) : memory_(WAREHOUSE_MEMORY_NAME), mutex_(WAREHOUSE_MUTEX_NAME),
 	robot(int startloc[], int memoryindex) : 
@@ -211,7 +211,7 @@ public:
 			else {
 				//// Just path follow 
 				for (WarehouseLocation point : t.path) {
-					std::this_thread::sleep_for(std::chrono::milliseconds(50));
+					std::this_thread::sleep_for(std::chrono::milliseconds(robotspeed));
 					updateRpos(point.col, point.row);
 
 					if (point.leftrightmiddle != 0) {
@@ -230,7 +230,7 @@ public:
 
 		// path follow
 		for (WarehouseLocation point : t.path) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(50));
+			std::this_thread::sleep_for(std::chrono::milliseconds(robotspeed));
 			updateRpos(point.col, point.row);
 
 			if (point.leftrightmiddle == -1 || point.leftrightmiddle == 1) {
@@ -247,6 +247,8 @@ public:
 				//if itemlist is empty
 				//	itemsaquired = true;
 				// continue;
+
+				
 			}
 			else if(point.shelflevel == -1) {
 				std::cout << "ROBOT: " << idx_ << " EXCHANGING WITH DELIVERY TRUCK " << point.col << "," << point.row << std::endl;
@@ -258,6 +260,8 @@ public:
 
 				*/
 			}
+
+			//THEN NOTIFY TASKID IS COMPLETE
 		}
 	}
 
@@ -265,12 +269,12 @@ public:
 
 		int itemsaquired = false;
 		for (WarehouseLocation point : t.path) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(50));
+			std::this_thread::sleep_for(std::chrono::milliseconds(robotspeed));
 			updateRpos(point.col, point.row);
 
 
 			if ( (point.leftrightmiddle == -1 || point.leftrightmiddle == 1) && itemsaquired) {
-				std::cout << "ROBOT: " << idx_ << " RESTOCKING ITEM: "<< 0 <<" AT SHELF LOCATION" << point.col+ point.leftrightmiddle << "," << point.row << std::endl;
+				std::cout << "ROBOT: " << idx_ << " RESTOCKING ITEM: "<< t.items.back() <<" AT SHELF LOCATION" << point.col+ point.leftrightmiddle << "," << point.row << std::endl;
 				// TODO INSERT ITEM
 				/*
 				DEQUEUE ITEM_ID
@@ -283,7 +287,14 @@ public:
 				REPEAT WHILE QUEUE !=EMPTY
 				*/
 
-				std::this_thread::sleep_for(std::chrono::milliseconds(600));		// VISUAL CUE
+				// update stock from list
+				if (t.items.size() > 0) {
+					StockUpdate(StockInfo_map, t.items.back());
+					t.items.pop_back();
+					_currentstockquant++;
+					std::this_thread::sleep_for(std::chrono::milliseconds(600));		// VISUAL CUE
+					
+				}
 			}
 			else if (point.shelflevel == -1) {
 				std::cout << "ROBOT: " << idx_ << " EXCHANGING WITH RESTOCK TRUCK " << point.col << "," << point.row << std::endl;
@@ -300,11 +311,14 @@ public:
 
 				
 				
-
+				//DO BY QUANTITY FASTER
 				*/
 				//if full
-				//itemsaquired = true;
+				itemsaquired = true;
 			}
+			if (restocktaskid > 0) restocktaskid--;
+
+			//THEN NOTIFY TASKID IS COMPLETE 
 		}
 	}
 

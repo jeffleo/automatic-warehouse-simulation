@@ -3,6 +3,12 @@
 #define STOCK_H
 
 #include <map>
+#include <vector>
+#include <array>
+#include "..\..\Warehouse\WarehouseLayout\WarehouseLayout\warehouse_common.h"
+#include "warehouse_local.h"
+
+
 
 void initializeItemID(std::map<std::string, int> &ItemMap) {
 	
@@ -38,6 +44,76 @@ void initializeItemID(std::map<std::string, int> &ItemMap) {
 	ItemMap.insert(std::pair<std::string, int>("Dab Fidget Spinner T-Shirt Cool Dabbing Tee", 30));
 }
 
+std::map<int, ItemInfo> StockInfo_map;					// MAP ID TO info
 
+float GenearteItemMass(int itemid) {
+
+	return (float)itemid / 6.0;
+}
+
+// Preallocattion MAP OF ITEMS_ID -> ITEMINFO , EACH WITH NO QUANTITY
+void GenerateStockInfo(std::map<int, ItemInfo> &StockInfo)
+{
+	for (int i = 1; i <= MAXITEMTYPES; ++i) {
+		ItemInfo iteminfo_blank(0, GenearteItemMass(i));
+		StockInfo.insert(std::make_pair( i, iteminfo_blank));
+	}
+}
+
+// REQUEST BY MAP, PROBABILY IDEAL FOR GUI
+void RandomStockGenerator(std::map<int, int> &Restock, int numtypes) {
+
+	for (int i = 0; i < numtypes; ++i) {
+		Restock.insert(std::make_pair(randomnum(1, MAXITEMTYPES) , 1));			// generates map of ids, all of quantity 1
+	}
+}
+
+// REQUEST BY ARRAY, LIKELY WONT USE
+void RandomStockGenerator(std::array<int, MAXWAREHOUSESTOCK> &Restock, int quantity) {
+
+	for (int i = 0; i < quantity; ++i) {
+		Restock.at(i) = randomnum(1, MAXITEMTYPES);				// all of quantty 1	
+			
+	}
+}
+
+// UPDATE STOCKINFO MAP BY ARRAY
+void StockUpdate(std::map<int, ItemInfo> &StockInfo, std::array<int, MAXWAREHOUSESTOCK> items) {
+	//int i = 0;
+	//do {
+	//	StockInfo.
+
+
+	//} while (items.at(i) != 0);
+
+}
+
+// UPDATE STOCKINFO MAP BY 1
+void StockUpdate(std::map<int, ItemInfo> &StockInfo, int item) {
+	
+	auto it = StockInfo.find(item);
+	if (it != StockInfo.end()) {
+		//found 
+		it->second.quantity++;
+	}
+
+	
+
+}
+
+void StockUpdate(std::map<int, ItemInfo> &StockInfo, int item, WarehouseLocation wl) {
+
+	auto it = StockInfo.find(item);
+	if (it != StockInfo.end()) {
+		//found 
+		it->second.quantity++;
+		it->second.locations.push_back(std::make_pair(false, wl));
+	}
+
+}
+
+void StockQuery() {
+
+}
 
 #endif //STOCK_H

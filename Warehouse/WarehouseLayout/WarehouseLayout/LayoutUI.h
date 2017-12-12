@@ -9,9 +9,11 @@
 #include <cpen333/process/mutex.h>
 #include <cpen333/process/shared_memory.h>
 #include <string>
-
+#include <cpen333\thread\condition.h>
 
 class LayoutUI {
+	
+
 	// Ref: http://www.theasciicode.com.ar/
 	static const char WALL = 219;  // WALL character 
 	static const char EXIT = 176;  // EXIT character 
