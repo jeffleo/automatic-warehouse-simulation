@@ -107,7 +107,6 @@ public:
 		std::lock_guard<decltype(mutex_)> lock(mutex_);
 		memory_->tinfo.tloc[idx_][ROW_IDX] = r;
 		memory_->tinfo.tloc[idx_][COL_IDX] = c;
-		
 	}
 
 

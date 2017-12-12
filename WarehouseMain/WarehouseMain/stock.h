@@ -112,8 +112,13 @@ void StockUpdate(std::map<int, ItemInfo> &StockInfo, int item, WarehouseLocation
 
 }
 
-void StockQuery() {
-
+int StockQuery(std::map<int, ItemInfo> &StockInfo, int item) {
+	auto it = StockInfo.find(item);
+	if (it != StockInfo.end()) {
+		//found 
+		return it->second.quantity;
+	}
+	else return 0;
 }
 
 #endif //STOCK_H

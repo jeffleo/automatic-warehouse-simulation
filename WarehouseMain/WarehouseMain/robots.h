@@ -289,7 +289,7 @@ public:
 
 				// update stock from list
 				if (t.items.size() > 0) {
-					StockUpdate(StockInfo_map, t.items.back());
+					StockUpdate(StockInfo_map, t.items.back(), point);
 					t.items.pop_back();
 					_currentstockquant++;
 					std::this_thread::sleep_for(std::chrono::milliseconds(600));		// VISUAL CUE
@@ -307,9 +307,6 @@ public:
 				// parse itembasket : vector<pair<Item_ID:int,quantity:int>> OR Map<ItemID: int, Quantity: int> into SINGLE queue of item IDs
 				//	 CAN YOU DO FOR EACH WITH A MAP OR KNOW IT QUANTITY AND ID'S WITHOUT PRIOR KNOWLEDGE?
 
-
-
-				
 				
 				//DO BY QUANTITY FASTER
 				*/
