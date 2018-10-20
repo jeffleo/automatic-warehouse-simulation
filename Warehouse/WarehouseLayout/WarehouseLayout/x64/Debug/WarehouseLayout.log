@@ -1,0 +1,10 @@
+﻿  main.cpp
+c:\users\jeffrey leong\source\repos\cpen333-amazoom\warehouse\warehouselayout\warehouselayout\layoutui.h(18): warning C4309: 'initializing': truncation of constant value
+c:\users\jeffrey leong\source\repos\cpen333-amazoom\warehouse\warehouselayout\warehouselayout\layoutui.h(19): warning C4309: 'initializing': truncation of constant value
+c:\users\jeffrey leong\source\repos\cpen333-amazoom\warehouse\warehouselayout\warehouselayout\layoutui.h(21): warning C4309: 'initializing': truncation of constant value
+c:\users\jeffrey leong\source\repos\cpen333-amazoom\warehouse\warehouselayout\warehouselayout\layoutui.h(22): warning C4309: 'initializing': truncation of constant value
+c:\users\jeffrey leong\source\repos\cpen333-amazoom\warehouse\warehouselayout\warehouselayout\layoutui.h(23): warning C4309: 'initializing': truncation of constant value
+c:\users\jeffrey leong\source\repos\cpen333-amazoom\warehouse\warehouselayout\warehouselayout\layoutui.h(31): warning C4309: 'initializing': truncation of constant value
+c:\users\jeffrey leong\source\repos\cpen333-amazoom\warehouse\warehouselayout\warehouselayout\main.cpp(45): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+  WarehouseLayout.vcxproj -> C:\Users\Jeffrey Leong\Source\Repos\CPEN333-Amazoom\Warehouse\WarehouseLayout\x64\Debug\WarehouseLayout.exe
+  WarehouseLayout.vcxproj -> C:\Users\Jeffrey Leong\Source\Repos\CPEN333-Amazoom\Warehouse\WarehouseLayout\x64\Debug\WarehouseLayout.pdb (Partial PDB)
