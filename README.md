@@ -1,1 +1,1 @@
-Simulated Amazon-esque automated warehouse system project for System Software Engineering course
+Amazon-esque automated warehouse system for System Software Engineering course project
